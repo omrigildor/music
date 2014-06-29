@@ -1,5 +1,5 @@
-port = 5005
-host = '192.168.1.28'
+port = 5008
+host = ''
 bytes = 4096
 
 operating_system = "mac"

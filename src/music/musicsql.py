@@ -2,7 +2,9 @@ import os
 import pymysql
 from mutagen.mp3 import MP3
 import re
-
+import sys
+import urllib2 as URL
+import xml.etree.ElementTree as ET
 
 def get_library(loc):
 
@@ -14,7 +16,7 @@ def get_library(loc):
     last_id = 0
     for mp in os.listdir(path)[1:]:
 
-        artist = mp.split("-")[0]
+        artist = mp.split(" - ")[0]
 
         if artist != art:
             with conn:
@@ -24,9 +26,9 @@ def get_library(loc):
             a_id = last_id
 
         if os.path.isdir(mp):
-            album = mp.split("-")[1]
+            album = mp.split(" - ")[1]
             with conn:
-                cur.execute("INSERT into albums (name, artist_id_fk) VALUES('%s', %d)" % (album[1:], a_id))
+                cur.execute("INSERT into albums (name, artist_id_fk) VALUES('%s', %d)" % (album, a_id))
             al_id = conn.insert_id()
             for i in os.listdir(mp):
 
@@ -50,7 +52,7 @@ def get_library(loc):
             duration = MP3(path + "/" + mp).info.length
 
             with conn:
-                cur.execute("INSERT into songs (name, length, size, path, artist_id_fk)"
+                cur.execute("INSERT into songs (name, size, length, path, artist_id_fk)"
                             "VALUES('%s', %.2d, %d, '%s', %d)" % (name, size, duration, pwd, a_id))
         art = artist
         last_id = a_id

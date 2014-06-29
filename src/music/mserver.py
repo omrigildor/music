@@ -3,7 +3,11 @@ import nItunes
 import os
 from globvars import host
 from globvars import port
+from nItunes import cur
 from globvars import bytes
+
+
+
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -15,8 +19,8 @@ replies = {
     "-a" : nItunes.get_artists,
     "-c" : nItunes.get_album,
     "-r" : nItunes.get_song,
-    "-e" : nItunes.enrich,
-    "-d" : nItunes.download
+    "-d" : nItunes.download,
+    "-all" : nItunes.get_all
 
 }
 
@@ -27,26 +31,36 @@ while True:
     data = connect.recv(bytes)
     func = replies.get(data.split(" ")[0])
     to_ret = ""
+    print data
+    print "Before Choices"
+    print "Choice ", data.split(" ")[0]
 
     if data.split(" ")[0] == "-a":
+        print data.split(" ")[1:]
+        print "single artist"
         to_ret = func(data.split(" ")[1:])
 
+    elif data.split(" ")[0] == "-all":
+        print "all artists"
+        to_ret = func()
+
     elif data.split(" ")[0] == "-c":
+        print "all albums"
         data = data.split(" ")[1:]
         data = " ".join(data)
         data = data.split("/")
         to_ret = func(data[0], data[1])
 
     elif data.split(" ")[0] == "-r":
+        print "rating"
         data = data.split(" ")[1:]
         data = " ".join(data)
         data = data.split("/")
         to_ret = func(data[0], data[1], data[-1])
 
-    elif data.split(" ")[0] == "-e":
-        to_ret = func(data.split(" ")[1:])
 
     elif data.split(" ")[0] == "-d":
+        print "dl/stream"
         data = data.split(" ")[1:]
         data = " ".join(data)
         data = data.split("/")
@@ -60,7 +74,6 @@ while True:
 
     if not data:
         break
-
 
     connect.sendall(to_ret)
 

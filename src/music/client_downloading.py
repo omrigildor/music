@@ -5,10 +5,12 @@ import time
 import sys
 import datetime
 import os
+import progressbar
 from globvars import port
 from globvars import host
 from globvars import bytes
-
+from progressbar import ProgressBar
+from nItunes import cur
 
 
 
@@ -38,14 +40,16 @@ def dl_artist(data, filepath, artist_name):
 
     s1 = time.strftime("%H:%M:%S", time.localtime())
 
-    sys.stdout.write("Loading [")
-    sys.stdout.flush()
-    for x in albums[:-1]:
+    pb = ProgressBar()
+    pb.start()
+    interval = albums[:-1] / 100
+    i = 0
 
+    for x in albums[:-1]:
+        pb.update(i)
+        i += interval
         y = dl_artist_helper(x, a_id)
         dl_album(y, filepath + "/" + artist_name, x)
-        sys.stdout.write('\b000')
-        sys.stdout.flush()
 
     s2 = time.strftime("%H:%M:%S", time.localtime())
     print s2
@@ -67,9 +71,16 @@ def dl_album(data, filepath, name):
 
     s1 = time.strftime("%H:%M:%S", time.localtime())
 
+    pb = ProgressBar()
+    pb.start()
+
+    interval = songs[:-1] / 100
+    i = 0
+
     for x in songs[:-1]:
-        sys.stdout.write("\b.")
-        dl_song(x, a_id, filepath + "/" + name)
+        pb.update(i)
+        i += interval
+        dl_song(x, a_id, filepath + "/" + name, False)
 
     s2 = time.strftime("%H:%M:%S", time.localtime())
     print s2
@@ -100,12 +111,18 @@ def get_song(data, filepath):
         except ValueError:
             print "Invalid Input"
 
-    dl_song(songs[int(to_send_song) - 1], a_id, filepath)
+    dl_song(songs[int(to_send_song) - 1], a_id, filepath, True)
 
 
+def get_song_size(song_name):
+    cur.execute("SELECT size from songs where name = '%s'" % song_name)
+    f_size = str(cur.fetchone()[0])
 
+    return f_size
 
-def dl_song(song_name, a_id, filepath):
+def dl_song(song_name, a_id, filepath, bl):
+
+    f_size = get_song_size(song_name)
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -118,27 +135,29 @@ def dl_song(song_name, a_id, filepath):
 
     FMT = '%H:%M:%S'
 
+
+
     s1 = time.strftime("%H:%M:%S", time.localtime())
 
-    i = 0.0
-    size = 0.0
-    sys.stdout.flush()
+    interval = int(f_size) / 20
+
+    size = 0
+    count = 0
+    if bl:
+        pb = ProgressBar()
+        pb.start()
+
     while dat:
-        if (i%4) == 0:
-            sys.stdout.write('\b/')
-        elif (i%4) == 1:
-            sys.stdout.write('\b-')
-        elif (i%4) == 2:
-            sys.stdout.write('\b\\')
-        elif (i%4) == 3:
-            sys.stdout.write('\b|')
+        if size > interval and bl:
+            count += 5
+            pb.update(count)
+            size = 0
 
-
-        i += .1
+        size += bytes
         mp.write(dat)
         dat = s.recv(bytes)
-        size += bytes
 
+    pb.finish()
     mp.close()
     s2 = time.strftime("%H:%M:%S", time.localtime())
     tdelta = datetime.datetime.strptime(s2, FMT) - datetime.datetime.strptime(s1, FMT)
@@ -146,3 +165,5 @@ def dl_song(song_name, a_id, filepath):
     print "Time to Download ", tdelta, " Filesize ", size
 
     s.close()
+
+

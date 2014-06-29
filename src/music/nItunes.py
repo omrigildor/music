@@ -12,6 +12,28 @@ cur = conn.cursor()
 
 # takes in an artist name
 # runs get_album on the artist name
+def enrich_all():
+    cur.execute("SELECT name from artists")
+    names = cur.fetchall()
+    cur.execute("SELECT name from albums")
+    albums = cur.fetchall()
+
+    for a in names:
+        enrich(a[0].split(" "))
+
+
+def get_all():
+    cur.execute("SELECT name, gender, country, begin_area, tags from artists")
+    names = cur.fetchall()
+
+    artists = ""
+    for a in names:
+        for i in a:
+            artists += str(i) + "/"
+        artists += "+"
+
+
+    return artists
 
 def get_artists(artist):
 
@@ -35,11 +57,10 @@ def get_artists(artist):
 def get_album(album, artist):
 
     artist_id = int(artist)
-
     cur.execute("SELECT id from albums where name = '%s' and artist_id_fk = %d" % (album, artist_id))
-    al_id = cur.fetchone()
+    al_id = cur.fetchone()[0]
 
-    cur.execute("SELECT name from songs where album_id_fk = '%d'" % al_id)
+    cur.execute("SELECT name from songs where album_id_fk = %d" % al_id)
     songs = cur.fetchall()
     song_str = ""
 
@@ -114,11 +135,20 @@ def enrich(artist):
     if end_life == "":
         end_life = '0000-00-00'
 
+    if len(end_life) <= 4:
+        end_life += "-00-00"
+
     if gender is None or gender == "":
         gender = "Uknown"
 
     if country is None or country == "":
         country = "Unknown"
+
+    if begin_life == "":
+        begin_life = '0000-00-00'
+
+    if len(begin_life) == 4:
+        begin_life += ("-00-00")
 
     cur.execute("SELECT * from artists where name = '" + name + "'")
     if cur.fetchall() < 1:
@@ -163,7 +193,7 @@ def enrich_albums(artist, brainz_id):
 
     for i in album_list:
         if info.get(i[0]) is not None:
-            cur.execute("UPDATE albums set year = '%s', country = '%s', format = '%s' where name = '%s'"
+            cur.execute("UPDATE albums set year = '%s', format = '%s', country = '%s' where name = '%s'"
                         % (info.get(i[0])[0], info.get(i[0])[1], info.get(i[0])[2], i[0]))
 
     conn.commit()
