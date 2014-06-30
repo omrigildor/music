@@ -3,6 +3,7 @@ from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 import mclient as m
 import client_rating as cr
+import threading
 import thread
 import client_downloading as cd
 
@@ -30,11 +31,8 @@ class nSpotify(QWidget):
         vBox.addWidget(self.list)
         vBox.addWidget(self.start_over)
 
-
         self.setLayout(vBox)
         self.setWindowTitle("NotSpotify")
-
-
 
         self.setGeometry(600, 300, 800, 600)
 
@@ -48,14 +46,13 @@ class nSpotify(QWidget):
 
         self.list.doubleClicked.connect(self.get_albums)
 
-    def setProgress(self, step):
-        self.pbar.setValue(step)
-
+    def onProgress(self, val):
+        self.pbar.setValue(val)
+        if self.pbar.value() >= self.pbar.maximum():
+            self.pbar.close()
 
     def download(self):
-        self.pbar = QProgressBarDialog(self)
-
-
+        self.pbar = QProgressDialog()
         print "Now in downloading"
         text, ok = QInputDialog.getText(self, 'Filepath', 'Enter your filepath')
         if ok:
@@ -73,23 +70,25 @@ class nSpotify(QWidget):
             self.song_name = unicode(self.list.currentItem().text())
             update = cr.send_song(self.song_name, text, self.artist_id)
             self.line_edit.setText(update)
-
         else:
             self.rate()
-
-
-
-
 
     def stream(self):
         self.pbar = QProgressDialog()
         self.pbar.setWindowTitle("Streaming")
+        self.pbar.setRange(0, 100)
         self.pbar.show()
 
         text = unicode(self.list.currentItem().text())
         self.song_name = unicode(text)
         print "Now Streaming"
-        thread.start_new(cr.stream_song, (self.song_name, self.artist_id))
+        self.thread = Worker()
+        self.thread.song_name = self.song_name
+        self.thread.artist_id = self.artist_id
+        self.thread.run()
+        if self.pbar.wasCanceled():
+            self.thread.__del__()
+
 
     def get_albums(self):
         text = unicode(self.list.currentItem().text())
@@ -148,11 +147,30 @@ class nSpotify(QWidget):
 
         self.list.itemClicked.connect(self.contextMenuEvent)
 
+class Worker(QThread):
+    song_name = ""
+    artist_id = ""
+
+    def __init__(self, parent = None):
+        super(Worker, self).__init__(parent)
+        self.exiting = False
+
+    def __del__(self):
+        self.exiting = True
+        self.wait()
+
+    def render(self):
+        self.exiting = False
+        self.start()
+
+    def run(self):
+        while not self.exiting:
+            cr.stream_song(self.song_name, self.artist_id)
 
 
-
-app = QApplication(sys.argv)
-n = nSpotify()
-n.show()
-app.exec_()
+def main():
+    app = QApplication(sys.argv)
+    n = nSpotify()
+    n.show()
+    sys.exit(app.exec_())
 

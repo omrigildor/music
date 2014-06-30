@@ -5,6 +5,7 @@ from globvars import host
 from globvars import port
 from nItunes import cur
 from globvars import bytes
+import thread
 
 
 
@@ -24,6 +25,16 @@ replies = {
 
 }
 
+def readFile(filename, fktuples):
+    if os.path.isfile(filename):
+        with open(filename, 'r') as infile:
+            d = infile.read(bytes)
+            while d:
+                connect.send(d)
+                d = infile.read(bytes)
+    connect.sendall(to_ret)
+    connect.close()
+
 while True:
 
     print "Running"
@@ -39,10 +50,15 @@ while True:
         print data.split(" ")[1:]
         print "single artist"
         to_ret = func(data.split(" ")[1:])
+        connect.sendall(to_ret)
+        connect.close()
+
 
     elif data.split(" ")[0] == "-all":
         print "all artists"
         to_ret = func()
+        connect.sendall(to_ret)
+        connect.close()
 
     elif data.split(" ")[0] == "-c":
         print "all albums"
@@ -50,6 +66,8 @@ while True:
         data = " ".join(data)
         data = data.split("/")
         to_ret = func(data[0], data[1])
+        connect.sendall(to_ret)
+        connect.close()
 
     elif data.split(" ")[0] == "-r":
         print "rating"
@@ -57,6 +75,8 @@ while True:
         data = " ".join(data)
         data = data.split("/")
         to_ret = func(data[0], data[1], data[-1])
+        connect.sendall(to_ret)
+        connect.close()
 
 
     elif data.split(" ")[0] == "-d":
@@ -65,18 +85,9 @@ while True:
         data = " ".join(data)
         data = data.split("/")
         filename = func(data[0], data[1])
-        if os.path.exists(filename):
-            with open(filename, 'r') as infile:
-                d = infile.read(bytes)
-                while d:
-                    connect.send(d)
-                    d = infile.read(bytes)
+        thread.start_new_thread(readFile, (filename, ''))
 
     if not data:
         break
-
-    connect.sendall(to_ret)
-
-    connect.close()
 
 s.close()
