@@ -1,10 +1,13 @@
 import os
 import sys
-from mutagen.mp3 import MP3
 from optparse import OptionParser
-from library import Library
-from song import Song
-import pymysql
+
+from mutagen.mp3 import MP3
+
+from oldfiles.library import Library
+from oldfiles.song import Song
+
+
 
 
 

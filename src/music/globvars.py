@@ -1,4 +1,4 @@
-port = 5008
+port = 5004
 host = ''
 bytes = 4096
 

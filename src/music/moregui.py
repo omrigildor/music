@@ -3,9 +3,9 @@ from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 import mclient as m
 import client_rating as cr
-import threading
 import thread
-import client_downloading as cd
+from downloadthread import DownloadThread
+from streamthread import StreamThread
 
 class nSpotify(QWidget):
     
@@ -15,27 +15,41 @@ class nSpotify(QWidget):
     album_list = []
     song_name = ""
     songs = []
+    filepath = ""
     
     def __init__(self, parent=None):
         super(nSpotify, self).__init__(parent)
         self.list = QListWidget(self)
-        self.line_edit = QLineEdit("Double Click an artist to get started")
-        self.line_edit.setReadOnly(True)
+        self.line_edit = QLineEdit("Enter Your FilePath Here to start")
+        self.filepath = unicode(self.line_edit.text())
         self.get_artists()
-
+        self.pbar = QProgressBar(self)
         self.start_over = QPushButton("Start Over")
         self.start_over.clicked.connect(self.get_artists)
+        self.pause = QPushButton("pause")
+        self.pause.clicked.connect(self.emit(SIGNAL("Pause")))
+        self.start = QPushButton("start")
+        self.start.clicked.connect(self.emit(SIGNAL("Start")))
+        self.stop = QPushButton("stop")
+        self.stop.clicked.connect(self.emit(SIGNAL("Stop")))
 
-        vBox = QVBoxLayout()
-        vBox.addWidget(self.line_edit)
-        vBox.addWidget(self.list)
-        vBox.addWidget(self.start_over)
 
-        self.setLayout(vBox)
+        grid = QGridLayout()
+        grid.setRowMinimumHeight(4)
+        grid.addWidget(self.line_edit, 0, 0)
+        grid.addWidget(self.list, 0, 2)
+        grid.addWidget(self.start_over, 0 , 3)
+
+        self.setLayout(grid)
         self.setWindowTitle("NotSpotify")
 
         self.setGeometry(600, 300, 800, 600)
 
+    def start_over(self):
+        self.list.itemClicked.disconnect(self.contextMenuEvent)
+        self.get_artists()
+
+    
     def get_artists(self):
         artists = m.get_all()
         art_list = artists.split("+")
@@ -46,48 +60,58 @@ class nSpotify(QWidget):
 
         self.list.doubleClicked.connect(self.get_albums)
 
-    def onProgress(self, val):
-        self.pbar.setValue(val)
-        if self.pbar.value() >= self.pbar.maximum():
-            self.pbar.close()
 
     def download(self):
-        self.pbar = QProgressDialog()
+        self.pbar.reset()
+        self.pbar.setValue(0)
+        self.grid.addWidget(self.pbar, 0 , 1)
         print "Now in downloading"
-        text, ok = QInputDialog.getText(self, 'Filepath', 'Enter your filepath')
-        if ok:
-            text = unicode(text)
-            thread.start_new(cd.dl_song, (unicode(self.list.currentItem().text()), self.artist_id, text, True))
-
-        return None
+        if self.filepath == "":
+            text, ok = QInputDialog.getText(self, 'Filepath', 'Enter your filepath')
+            if ok:
+                text = unicode(text)
+                self.song_name = unicode(self.list.currentItem().text())
+                self.workThread = DownloadThread(self.song_name, self.artist_id, text)
+                self.connect(self.workThread, SIGNAL("Progress"), self.onProgress)
+                self.workThread.start()
+        else:
+            self.song_name = unicode(self.list.currentItem().text())
+            self.workThread = DownloadThread(self.song_name, self.artist_id, self.filepath)
+            self.connect(self.workThread, SIGNAL("Progress"), self.onProgress)
+            self.workThread.start()
 
     def rate(self):
         print "Now in rating"
-
         text, ok = QInputDialog.getText(self, 'Rating', 'Enter your rating (0 to 5)')
         if ok and float(text) <= 5 and float(text) >= 0:
             text = unicode(text)
             self.song_name = unicode(self.list.currentItem().text())
             update = cr.send_song(self.song_name, text, self.artist_id)
             self.line_edit.setText(update)
+        
         else:
-            self.rate()
+            QDialog(self, "Rating was not within 0 to 5")
+
+
+    def onProgress(self):
+        if self.pbar.value() >= 95:
+            self.pbar.setValue(100)
+            self.line_edit.setText("Finished")
+            return
+        self.pbar.setValue(self.pbar.value() + 5)
+        print self.pbar.value()
+
 
     def stream(self):
-        self.pbar = QProgressDialog()
-        self.pbar.setWindowTitle("Streaming")
-        self.pbar.setRange(0, 100)
-        self.pbar.show()
-
+        self.grid.addWidget(self.pause, 1, 0)
+        self.grid.addWidget(self.start, 1, 1)
+        self.grid.addWidget(self.stop, 1, 2)
         text = unicode(self.list.currentItem().text())
         self.song_name = unicode(text)
         print "Now Streaming"
-        self.thread = Worker()
-        self.thread.song_name = self.song_name
-        self.thread.artist_id = self.artist_id
-        self.thread.run()
-        if self.pbar.wasCanceled():
-            self.thread.__del__()
+        self.workThreadS = StreamThread(self.song_name, self.artist_id)
+        self.workThreadS.start()
+
 
 
     def get_albums(self):
@@ -147,25 +171,6 @@ class nSpotify(QWidget):
 
         self.list.itemClicked.connect(self.contextMenuEvent)
 
-class Worker(QThread):
-    song_name = ""
-    artist_id = ""
-
-    def __init__(self, parent = None):
-        super(Worker, self).__init__(parent)
-        self.exiting = False
-
-    def __del__(self):
-        self.exiting = True
-        self.wait()
-
-    def render(self):
-        self.exiting = False
-        self.start()
-
-    def run(self):
-        while not self.exiting:
-            cr.stream_song(self.song_name, self.artist_id)
 
 
 def main():

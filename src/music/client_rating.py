@@ -3,13 +3,12 @@ __author__ = 'omrigildor'
 import socket
 import os
 import sys
-from progressbar import ProgressBar
 from globvars import host
 from globvars import port
 from globvars import operating_system
 from globvars import bytes
-
-
+import time
+import moregui as mg
 interval = 0
 
 # interprets the album list from the server
@@ -37,19 +36,21 @@ def stream_song(song_name, artist_id):
     from client_downloading import get_song_size
     f_size = int(get_song_size(song_name))
     s.send("-d " + song_name + "/" + artist_id)
-    dat = s.recv(bytes)
 
     interval = f_size / 10
     size = 0
     song = 0
-
     if operating_system == "mac":
         import subprocess
         mp = open("/tmp/temp.mp3" , 'wb')
         while 1:
+            dat = s.recv(bytes)
+            if queue.get() == -1:
+                break
+
             if not dat:
                 p = subprocess.call(["afplay", mp.name])
-                break
+
 
             if (size > interval and song == 0):
                 p = subprocess.call(["afplay", mp.name])
@@ -57,17 +58,21 @@ def stream_song(song_name, artist_id):
                 mp.seek(0)
 
 
-            if (size > interval):
-                song += 10
-                size = 0
 
             if dat:
                 mp.write(dat)
+                size += bytes
 
-            size += bytes
-            dat = s.recv(bytes)
+            if (size > interval):
+                song += 10
+                queue.put(song)
+                size = 0
+                time.sleep(0)
+
 
         mp.close()
+        p.kill()
+        print "Thread is kill"
         if os.path.isfile("/tmp/temp.mp3"):
             os.remove("/tmp/temp.mp3")
 
@@ -109,7 +114,6 @@ def stream_song(song_name, artist_id):
 
         os.remove(mp)
         s.close()
-
 
 
 

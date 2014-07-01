@@ -88,39 +88,19 @@ def dl_album(data, filepath, name):
 
     print "Time to download album ", tdelta
 
-def get_song(data, filepath):
 
-    songs = data.split("+")
-    count = 1
-
-
-    for x in songs[:-2]:
-        print str(count) + "-" +  x
-        count += 1
-
-    a_id = songs[-1]
-    to_send_song = 0
-    bl = False
-    while not bl:
-        try:
-            to_send_song = int(raw_input("What song would you like to download? (enter a number)\n"))
-            if to_send_song <= count - 1:
-                bl = True
-            else:
-                print "Invalid Input"
-        except ValueError:
-            print "Invalid Input"
-
-    dl_song(songs[int(to_send_song) - 1], a_id, filepath, True)
 
 
 def get_song_size(song_name):
     cur.execute("SELECT size from songs where name = '%s'" % song_name)
-    f_size = str(cur.fetchone()[0])
-
+    f_size = cur.fetchall()
+    if len(f_size) > 0:
+        f_size = f_size[0][0]
+    else:
+        f_size = "15000000"
     return f_size
 
-def dl_song(song_name, a_id, filepath, bl):
+def dl_song(song_name, a_id, filepath, pq):
 
     f_size = get_song_size(song_name)
 
@@ -130,40 +110,27 @@ def dl_song(song_name, a_id, filepath, bl):
 
     s.send("-d " + song_name + "/" + a_id)
 
-    dat = s.recv(bytes)
+
     mp = open(filepath + "/" + song_name, 'wb')
-
-    FMT = '%H:%M:%S'
-
-
-
-    s1 = time.strftime("%H:%M:%S", time.localtime())
 
     interval = int(f_size) / 20
 
     size = 0
     count = 0
-    if bl:
-        pb = ProgressBar()
-        pb.start()
-
+    dat = s.recv(bytes)
     while dat:
+
         if size > interval and bl:
             count += 5
-            pb.update(count)
+            pq.put(count)
+            self.emit(SIGNAL("Progress"))
             size = 0
 
         size += bytes
         mp.write(dat)
         dat = s.recv(bytes)
 
-    pb.finish()
+    pq.put(100)
     mp.close()
-    s2 = time.strftime("%H:%M:%S", time.localtime())
-    tdelta = datetime.datetime.strptime(s2, FMT) - datetime.datetime.strptime(s1, FMT)
-
-    print "Time to Download ", tdelta, " Filesize ", size
-
     s.close()
-
 
