@@ -100,7 +100,9 @@ class nSpotify(QWidget):
             self.line_edit.setText(update)
         
         else:
-            QDialog(self, "Rating was not within 0 to 5")
+            self.box = QErrorMessage()
+            self.box.setWindowTitle("Error")
+            self.box.showMessage("Error: Rating must be 0 to 5")
 
 
     def onProgress(self):
