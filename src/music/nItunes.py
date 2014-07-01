@@ -1,28 +1,23 @@
 __author__ = 'omrigildor'
 
-import os
-from optparse import OptionParser
-import pymysql
-import sys
 import urllib2 as URL
 import xml.etree.ElementTree as ET
 
-conn = pymysql.connect(host = "localhost", user = "root", passwd = "", db = "test2")
-cur = conn.cursor()
+
 
 # takes in an artist name
 # runs get_album on the artist name
-def enrich_all():
+def enrich_all(cur, conn):
     cur.execute("SELECT name from artists")
     names = cur.fetchall()
     cur.execute("SELECT name from albums")
     albums = cur.fetchall()
 
     for a in names:
-        enrich(a[0].split(" "))
+        enrich(cur, conn, a[0].split(" "))
 
 
-def get_all():
+def get_all(cur):
     cur.execute("SELECT name, gender, country, begin_area, tags from artists")
     names = cur.fetchall()
 
@@ -35,7 +30,7 @@ def get_all():
 
     return artists
 
-def get_artists(artist):
+def get_artists(cur, artist):
 
     artist = ' '.join(artist)
     print artist
@@ -54,7 +49,7 @@ def get_artists(artist):
     return album_str + str(a_id)
 
 
-def get_album(album, artist):
+def get_album(cur, album, artist):
 
     artist_id = int(artist)
     cur.execute("SELECT id from albums where name = '%s' and artist_id_fk = %d" % (album, artist_id))
@@ -69,7 +64,7 @@ def get_album(album, artist):
 
     return song_str + str(artist_id)
 
-def get_song(chosen , rating, artist_id):
+def get_song(cur, conn, chosen , rating, artist_id):
 
     cur.execute("UPDATE songs set rating = %f where name = '%s' and artist_id_fk = %d" % (float(rating), chosen, int(artist_id)))
     print rating
@@ -79,7 +74,7 @@ def get_song(chosen , rating, artist_id):
     return "Updated Rating of %s to %s" % (chosen, rating)
 
 
-def enrich(artist):
+def enrich(cur, conn, artist):
 
     name = ' '.join(artist)
     artist = "%20".join(artist)
@@ -166,7 +161,7 @@ def enrich(artist):
     enrich_albums(name, brainz_id)
 
 
-def enrich_albums(artist, brainz_id):
+def enrich_albums(cur, conn, artist, brainz_id):
 
     cur.execute("SELECT id from artists where name = '" + artist + "'")
     a_id = cur.fetchone()[0]
@@ -198,7 +193,7 @@ def enrich_albums(artist, brainz_id):
 
     conn.commit()
 
-def download(song, artist_id):
+def download(cur, song, artist_id):
 
 
     cur.execute("SELECT path from songs where name = '%s' and artist_id_fk = %d" % (song, int(artist_id)))

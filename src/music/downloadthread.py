@@ -1,10 +1,7 @@
 __author__ = 'omrigildor'
-from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 import socket
-import PyQt4
 from globvars import *
-import thread
 
 
 class DownloadThread(QThread):

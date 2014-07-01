@@ -25,7 +25,7 @@ class StreamThread(QThread):
     def _pause(self):
         self.pause = True
 
-    def power(self):
+    def _power(self):
         self.power = True
 
     def run(self):
@@ -34,7 +34,7 @@ class StreamThread(QThread):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((host, port))
         s.send("-d " + self.song_name + "/" + self.artist_id)
-        interval = f_size / 10
+        interval = int(f_size) / 10
         size = 0
         if operating_system == "mac":
             os.system("killall afplay")

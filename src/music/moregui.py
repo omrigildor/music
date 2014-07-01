@@ -3,7 +3,6 @@ from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 import mclient as m
 import client_rating as cr
-import thread
 from downloadthread import DownloadThread
 from streamthread import StreamThread
 
@@ -26,7 +25,7 @@ class nSpotify(QWidget):
 
         self.pbar = QProgressBar(self)
         self.start_over = QPushButton("Start Over")
-        self.start_over.clicked.connect(self.get_artists)
+        self.start_over.clicked.connect(self.start_again)
         self.stop = QPushButton("stop")
         self.start = QPushButton("start")
         self.pause = QPushButton("pause")
@@ -49,10 +48,10 @@ class nSpotify(QWidget):
 
         self.get_artists()
 
-    def start_over(self):
+    def start_again(self):
         self.list.itemClicked.disconnect(self.contextMenuEvent)
         self.pause.clicked.disconnect(self.workThreadS._pause)
-        self.start.clicked.disconnect(self.workThreadS.power)
+        self.start.clicked.disconnect(self.workThreadS._power)
         self.stop.clicked.disconnect(self.workThreadS._stop)
         self.get_artists()
 
@@ -122,7 +121,7 @@ class nSpotify(QWidget):
         self.workThreadS.start()
         self.pause.clicked.connect(self.workThreadS._pause)
 
-        self.start.clicked.connect(self.workThreadS.power)
+        self.start.clicked.connect(self.workThreadS._power)
 
         self.stop.clicked.connect(self.workThreadS._stop)
 
