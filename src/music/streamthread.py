@@ -9,27 +9,26 @@ import os
 class StreamThread(QThread):
     stop = False
     pause = False
+    power = False
 
     def __init__(self, song_name, artist_id):
         QThread.__init__(self)
         self.song_name = song_name
         self.artist_id = artist_id
-        self.connect(self, SIGNAL("Stop"), self._stop)
-        self.connect(self, SIGNAL("Pause"), self._pause)
-        self.connect(self, SIGNAL("Start"), self._start)
 
 
     def __del__(self):
         self.wait()
 
     def _stop(self):
+        os.system("killall afplay")
         self.stop = True
 
     def _pause(self):
         self.pause = True
 
-    def _start(self):
-        self.pause = False
+    def power(self):
+        self.power = True
 
     def run(self):
         from client_downloading import get_song_size
@@ -41,38 +40,66 @@ class StreamThread(QThread):
         if operating_system == "mac":
             mp = open("/tmp/temp.mp3" , 'wb')
             import subprocess
-            size = 0
-            song = 0
+            p = subprocess.Popen(["afplay", mp.name])
             while 1:
+                if dat:
+                    dat = s.recv(bytes)
+                    mp.write(dat)
+
                 if self.stop:
                     os.system("killall afplay")
                     break
 
-                if self.pause:
+                elif self.power:
+                    p = subprocess.Popen(["afplay", mp.name])
+                    self.power = False
+
+                elif self.pause:
                     os.system("killall afplay")
+                    self.pause = False
 
-                else:
-                    dat = s.recv(bytes)
-                    mp.write(dat)
-                    size += bytes
-                    if dat:
-                        mp.write(dat)
+                elif p.pid == 0 and not self.power and not self.pause:
+                    mp.seek(0)
+                    p = subprocess.Popen(["afplay", mp.name])
 
-                    if not dat:
-                        p = subprocess.Popen(["afplay", mp.name]).pid
-                        break
-
-                    if size >= interval and song == 0:
-                        p = subprocess.Popen(["afplay", mp.name]).pid
-                        size = 0
-                        mp.seek(0)
-
-                    if song == 2 and p != 0:
-                        p = subprocess.Popen(["afplay", mp.name])
 
             mp.close()
-            p.kill()
+            os.system("killall afplay")
             if os.path.isfile("/tmp/temp.mp3"):
                 os.remove("/tmp/temp.mp3")
+
+            s.close()
+
+        elif operating_system == "windows":
+            import mp3play
+            mp_dir = r"C:\WINDOWS\Temp\temp.mp3"
+            mp = open(mp_dir , 'wb')
+
+            while 1:
+                if dat:
+                    dat = s.recv(bytes)
+                    mp.write(dat)
+
+                if self.stop:
+                    clip.stop()
+                    break
+
+                elif self.power:
+                    clip.play()
+                    self.power = False
+
+                elif self.pause:
+                    clip.pause()
+                    self.pause = False
+
+                elif not clip.isplaying() and not self.power and not self.pause:
+                    clip = mp3play.load(mp_dir)
+                    clip.play()
+                    mp.seek(0)
+
+            mp.close()
+            clip.stop()
+            if os.path.isfile(mp):
+                os.remove(mp)
 
             s.close()

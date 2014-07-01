@@ -20,30 +20,34 @@ class nSpotify(QWidget):
     def __init__(self, parent=None):
         super(nSpotify, self).__init__(parent)
         self.list = QListWidget(self)
-        self.line_edit = QLineEdit("Enter Your FilePath Here to start")
-        self.filepath = unicode(self.line_edit.text())
-        self.get_artists()
+        self.line_edit = QLineEdit(self)
+        self.line_edit.setText("Double click an artist")
+        self.line_edit.setReadOnly(True)
+
         self.pbar = QProgressBar(self)
         self.start_over = QPushButton("Start Over")
         self.start_over.clicked.connect(self.get_artists)
-        self.pause = QPushButton("pause")
-        self.pause.clicked.connect(self.emit(SIGNAL("Pause")))
-        self.start = QPushButton("start")
-        self.start.clicked.connect(self.emit(SIGNAL("Start")))
         self.stop = QPushButton("stop")
-        self.stop.clicked.connect(self.emit(SIGNAL("Stop")))
+        self.start = QPushButton("start")
+        self.pause = QPushButton("pause")
 
+        self.grid = QGridLayout()
+        hBox = QHBoxLayout()
+        hBox.addWidget(self.pause)
+        hBox.addWidget(self.start)
+        hBox.addWidget(self.stop)
+        self.grid.addWidget(self.line_edit, 0, 0)
+        self.grid.addWidget(self.pbar, 1, 0)
+        self.grid.addLayout(hBox, 2, 0)
+        self.grid.addWidget(self.list, 3, 0)
+        self.grid.addWidget(self.start_over, 4 , 0)
 
-        grid = QGridLayout()
-        grid.setRowMinimumHeight(4)
-        grid.addWidget(self.line_edit, 0, 0)
-        grid.addWidget(self.list, 0, 2)
-        grid.addWidget(self.start_over, 0 , 3)
-
-        self.setLayout(grid)
+        self.setLayout(self.grid)
         self.setWindowTitle("NotSpotify")
 
         self.setGeometry(600, 300, 800, 600)
+
+        self.get_artists()
 
     def start_over(self):
         self.list.itemClicked.disconnect(self.contextMenuEvent)
@@ -62,14 +66,15 @@ class nSpotify(QWidget):
 
 
     def download(self):
+
         self.pbar.reset()
         self.pbar.setValue(0)
-        self.grid.addWidget(self.pbar, 0 , 1)
         print "Now in downloading"
         if self.filepath == "":
             text, ok = QInputDialog.getText(self, 'Filepath', 'Enter your filepath')
             if ok:
                 text = unicode(text)
+                self.filepath = text
                 self.song_name = unicode(self.list.currentItem().text())
                 self.workThread = DownloadThread(self.song_name, self.artist_id, text)
                 self.connect(self.workThread, SIGNAL("Progress"), self.onProgress)
@@ -79,6 +84,8 @@ class nSpotify(QWidget):
             self.workThread = DownloadThread(self.song_name, self.artist_id, self.filepath)
             self.connect(self.workThread, SIGNAL("Progress"), self.onProgress)
             self.workThread.start()
+
+
 
     def rate(self):
         print "Now in rating"
@@ -99,18 +106,20 @@ class nSpotify(QWidget):
             self.line_edit.setText("Finished")
             return
         self.pbar.setValue(self.pbar.value() + 5)
-        print self.pbar.value()
 
 
     def stream(self):
-        self.grid.addWidget(self.pause, 1, 0)
-        self.grid.addWidget(self.start, 1, 1)
-        self.grid.addWidget(self.stop, 1, 2)
+
         text = unicode(self.list.currentItem().text())
         self.song_name = unicode(text)
         print "Now Streaming"
         self.workThreadS = StreamThread(self.song_name, self.artist_id)
         self.workThreadS.start()
+        self.pause.clicked.connect(self.workThreadS._pause)
+
+        self.start.clicked.connect(self.workThreadS.power)
+
+        self.stop.clicked.connect(self.workThreadS._stop)
 
 
 
