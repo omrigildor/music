@@ -51,6 +51,9 @@ class nSpotify(QWidget):
 
     def start_over(self):
         self.list.itemClicked.disconnect(self.contextMenuEvent)
+        self.pause.clicked.disconnect(self.workThreadS._pause)
+        self.start.clicked.disconnect(self.workThreadS.power)
+        self.stop.clicked.disconnect(self.workThreadS._stop)
         self.get_artists()
 
     

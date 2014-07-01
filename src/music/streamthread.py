@@ -1,5 +1,4 @@
 __author__ = 'omrigildor'
-from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 import socket
 from globvars import *
@@ -21,7 +20,6 @@ class StreamThread(QThread):
         self.wait()
 
     def _stop(self):
-        os.system("killall afplay")
         self.stop = True
 
     def _pause(self):
@@ -37,17 +35,20 @@ class StreamThread(QThread):
         s.connect((host, port))
         s.send("-d " + self.song_name + "/" + self.artist_id)
         interval = f_size / 10
+        size = 0
         if operating_system == "mac":
+            os.system("killall afplay")
             mp = open("/tmp/temp.mp3" , 'wb')
             import subprocess
             p = subprocess.Popen(["afplay", mp.name])
             while 1:
-                if dat:
-                    dat = s.recv(bytes)
-                    mp.write(dat)
+                dat = s.recv(bytes)
+                mp.write(dat)
+                size += bytes
 
                 if self.stop:
                     os.system("killall afplay")
+                    self.stop = False
                     break
 
                 elif self.power:
@@ -58,7 +59,7 @@ class StreamThread(QThread):
                     os.system("killall afplay")
                     self.pause = False
 
-                elif p.pid == 0 and not self.power and not self.pause:
+                elif p.pid == 0 and not self.power and not self.pause and size >= interval:
                     mp.seek(0)
                     p = subprocess.Popen(["afplay", mp.name])
 
@@ -76,9 +77,8 @@ class StreamThread(QThread):
             mp = open(mp_dir , 'wb')
 
             while 1:
-                if dat:
-                    dat = s.recv(bytes)
-                    mp.write(dat)
+                dat = s.recv(bytes)
+                mp.write(dat)
 
                 if self.stop:
                     clip.stop()
