@@ -1,5 +1,5 @@
 port = 5006
-host = 'localhost'
+host = "10.0.0.10"
 bytes = 4096
 
-operating_system = "mac"
+operating_system = "windows"
