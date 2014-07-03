@@ -1,5 +1,3 @@
-import sys
-import os
 import subprocess
 from PyQt4.QtGui import *
 import twistedclient as tc
@@ -17,7 +15,7 @@ class nSpotify(QWidget):
     songs = []
     filepath = ""
     filesize = 0
-    stream = False
+    streaming = False
     
     def __init__(self, reactor, parent=None):
         super(nSpotify, self).__init__(parent)
@@ -71,7 +69,7 @@ class nSpotify(QWidget):
             self.stop.clicked.disconnect(self.workThreadS._stop)
         except:
             print "yah"
-        self.get_artists(self.artists)
+        self.get_artists(self.list_artists("+".join(self.artist_list)))
 
     # takes the string of artists and displays them in the self.list
     def list_artists(self, artists):
@@ -94,14 +92,17 @@ class nSpotify(QWidget):
         self.filesize = i
 
     def download_finish(self):
+        print "download finished"
         self.fille.close()
-        self.stream = False
+        self.streaming = False
 
     def download_test(self, data):
         self.fille.write(data)
-        if self.stream and self.pid == 0 and operating_system == "mac":
+        self.filesize += len(data)
+        if self.streaming and self.pid == 0 and operating_system == "mac":
             p = subprocess.Popen(["afplay", self.filepath + "/" + self.song_name])
             self.pid = p.pid
+
         if self.filesize >= self.interval:
             self.onProgress()
             self.filesize = 0
@@ -154,7 +155,7 @@ class nSpotify(QWidget):
         print "Now Streaming"
         self.filepath = "/tmp"
         self.fille = open(self.filepath + "/" + self.song_name, "wb")
-        self.stream = True
+        self.streaming = True
         self.filesize = 0
         self.interval = 0
         self.client.download_song(text, self.artist_id)

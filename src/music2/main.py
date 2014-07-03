@@ -1,7 +1,5 @@
 __author__ = 'omrigildor'
 import moregui
-import twistedclient
-
 import qt4reactor
 from PyQt4.QtGui import *
 import sys

@@ -4,9 +4,7 @@ from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor
 import nItunes
 import os
-import thread
 import pymysql
-import datetime
 
 
 class tServer(LineReceiver):
@@ -88,10 +86,10 @@ class tServer(LineReceiver):
         self.sendLine("-download-_start")
         if os.path.isfile(filename):
             with open(filename, 'r') as infile:
-                d = infile.read()
+                d = infile.readline()
                 while d:
                     self.sendLine(d)
-                    d = infile.read()
+                    d = infile.readline()
         self.sendLine("-stop-_")
         print "Done transfering file"
 
