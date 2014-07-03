@@ -1,28 +1,32 @@
 import sys
+import os
+import subprocess
 from PyQt4.QtGui import *
-from PyQt4.QtCore import *
-import mclient as m
-import client_rating as cr
-from downloadthread import DownloadThread
-from streamthread import StreamThread
+import twistedclient as tc
+from globtwisted import *
 
 class nSpotify(QWidget):
-    
+
+    pid = 0
     artist_name = ""
+    artist_list = []
     artist_id = 0
     album_name = ""
     album_list = []
     song_name = ""
     songs = []
     filepath = ""
+    filesize = 0
+    stream = False
     
-    def __init__(self, parent=None):
+    def __init__(self, reactor, parent=None):
         super(nSpotify, self).__init__(parent)
+        self.reactor = reactor
         self.list = QListWidget(self)
         self.line_edit = QLineEdit(self)
         self.line_edit.setText("Double click an artist")
         self.line_edit.setReadOnly(True)
-
+        self.set_factory()
         self.pbar = QProgressBar(self)
         self.start_over = QPushButton("Start Over")
         self.start_over.clicked.connect(self.start_again)
@@ -46,64 +50,96 @@ class nSpotify(QWidget):
 
         self.setGeometry(600, 300, 800, 600)
 
-        self.get_artists()
+    #creates the gui's factory
+    def set_factory(self):
+        self.factory = tc.mClientFactory(self)
+        self.connection = self.reactor.connectTCP(host, port, self.factory)
 
+    # sets the self.client to the twisted client
+    def set_client(self, client):
+        self.client = client
+
+    # button to reset the client after rating/streaming/downloading a song
     def start_again(self):
-        self.list.itemClicked.disconnect(self.contextMenuEvent)
-        self.pause.clicked.disconnect(self.workThreadS._pause)
-        self.start.clicked.disconnect(self.workThreadS._power)
-        self.stop.clicked.disconnect(self.workThreadS._stop)
-        self.get_artists()
+        try:
+            self.list.itemClicked.disconnect(self.contextMenuEvent)
+        except:
+            print "OK"
+        try:
+            self.pause.clicked.disconnect(self.workThreadS._pause)
+            self.start.clicked.disconnect(self.workThreadS._power)
+            self.stop.clicked.disconnect(self.workThreadS._stop)
+        except:
+            print "yah"
+        self.get_artists(self.artists)
 
-    
-    def get_artists(self):
-        artists = m.get_all()
+    # takes the string of artists and displays them in the self.list
+    def list_artists(self, artists):
         art_list = artists.split("+")
+        self.artist_list = art_list
         self.list.clear()
         for x in art_list:
             x.split("/")
             self.list.addItem(x.split("/")[0])
 
-        self.list.doubleClicked.connect(self.get_albums)
+        self.list.doubleClicked.connect(self.get_artist)
 
+    #updates the line_edit text
+    def update_text(self, txt):
+        self.line_edit.setText(txt)
 
+    #sets the filesize of the chosen song
+    def set_filesize(self, i):
+        print "filesize updated to", i
+        self.filesize = i
+
+    def download_finish(self):
+        self.fille.close()
+        self.stream = False
+
+    def download_test(self, data):
+        self.fille.write(data)
+        if self.stream and self.pid == 0 and operating_system == "mac":
+            p = subprocess.Popen(["afplay", self.filepath + "/" + self.song_name])
+            self.pid = p.pid
+        if self.filesize >= self.interval:
+            self.onProgress()
+            self.filesize = 0
+
+    # downloads a file
     def download(self):
-
+        self.song_name = str(self.list.currentItem().text())
+        self.client.get_song_size(self.song_name)
+        self.interval = self.filesize / 20
         self.pbar.reset()
         self.pbar.setValue(0)
         print "Now in downloading"
         if self.filepath == "":
             text, ok = QInputDialog.getText(self, 'Filepath', 'Enter your filepath')
             if ok:
-                text = unicode(text)
                 self.filepath = text
-                self.song_name = unicode(self.list.currentItem().text())
-                self.workThread = DownloadThread(self.song_name, self.artist_id, text)
-                self.connect(self.workThread, SIGNAL("Progress"), self.onProgress)
-                self.workThread.start()
+                self.fille = open(self.filepath + "/" + self.song_name, "wb")
+                self.filesize = 0
+                self.client.download_song(self.song_name, self.artist_id)
         else:
-            self.song_name = unicode(self.list.currentItem().text())
-            self.workThread = DownloadThread(self.song_name, self.artist_id, self.filepath)
-            self.connect(self.workThread, SIGNAL("Progress"), self.onProgress)
-            self.workThread.start()
+            self.fille = open(self.filepath + "/" + self.song_name, "wb")
+            self.filesize = 0
+            self.client.download_song(self.song_name, self.artist_id)
 
-
-
+    # rates a song showing a dialog box
     def rate(self):
         print "Now in rating"
         text, ok = QInputDialog.getText(self, 'Rating', 'Enter your rating (0 to 5)')
         if ok and float(text) <= 5 and float(text) >= 0:
-            text = unicode(text)
-            self.song_name = unicode(self.list.currentItem().text())
-            update = cr.send_song(self.song_name, text, self.artist_id)
-            self.line_edit.setText(update)
+            self.song_name = str(self.list.currentItem().text())
+            self.client.send_rating(self.song_name, str(text), self.artist_id)
         
         else:
             self.box = QErrorMessage()
             self.box.setWindowTitle("Error")
             self.box.showMessage("Error: Rating must be 0 to 5")
 
-
+    # updates the progress bar
     def onProgress(self):
         if self.pbar.value() >= 95:
             self.pbar.setValue(100)
@@ -111,28 +147,35 @@ class nSpotify(QWidget):
             return
         self.pbar.setValue(self.pbar.value() + 5)
 
-
+    # streams a song
     def stream(self):
-
-        text = unicode(self.list.currentItem().text())
-        self.song_name = unicode(text)
+        text = str(self.list.currentItem().text())
+        self.song_name = "temp.mp3"
         print "Now Streaming"
-        self.workThreadS = StreamThread(self.song_name, self.artist_id)
-        self.workThreadS.start()
-        self.pause.clicked.connect(self.workThreadS._pause)
+        self.filepath = "/tmp"
+        self.fille = open(self.filepath + "/" + self.song_name, "wb")
+        self.stream = True
+        self.filesize = 0
+        self.interval = 0
+        self.client.download_song(text, self.artist_id)
+        if operating_system == "mac":
+            self.stop.clicked.connect(self.stop_song)
 
-        self.start.clicked.connect(self.workThreadS._power)
-
-        self.stop.clicked.connect(self.workThreadS._stop)
-
+    def stop_song(self):
+        subprocess.call(["killall", "afplay"])
 
 
-    def get_albums(self):
-        text = unicode(self.list.currentItem().text())
+    # takes the chosen artist and sends it to the server
+    def get_artist(self):
+        text = str(self.list.currentItem().text())
         print text, "artist chosen"
-        print "Now in get_albums"
-        album_list = m.send_artist(text)
-        albums = album_list.split("+")
+        self.artist_name = text
+        self.client.send_artist(text)
+
+    # list the albums for an artist
+    def list_albums(self, line):
+        print "called list albums"
+        albums = line.split("+")
         count = 1
 
         self.list.clear()
@@ -141,13 +184,14 @@ class nSpotify(QWidget):
             self.list.addItem(x)
             count += 1
 
-        self.artist_name = text
         self.artist_id = albums[-1]
         self.albums = albums[:-1]
         self.line_edit.setText("Double Click an Album")
-        self.list.doubleClicked.disconnect(self.get_albums)
+        self.list.doubleClicked.disconnect(self.get_artist)
         self.list.doubleClicked.connect(self.get_songs)
 
+    # context menu
+    # sets it up so a click allows user to rate/stream/download
     def contextMenuEvent(self, event):
         self.menu = QMenu(self)
         rate_act = QAction('Rate', self)
@@ -162,16 +206,18 @@ class nSpotify(QWidget):
         self.menu.addAction(download_act)
         self.menu.popup(QCursor.pos())
 
+    # takes the chosen album and sends it to the server
     def get_songs(self):
         self.line_edit.setText("Right click a song")
-
-        text = unicode(self.list.currentItem().text())
+        text = str(self.list.currentItem().text())
         print "Now in get_songs"
         self.album_name = text
+        self.client.send_album(self.album_name, self.artist_id)
 
-        song_list = cr.send_album(self.album_name, self.artist_id)
-
-        songs = song_list.split("+")
+    # lists the songs for an album in self.list
+    def list_songs(self, line):
+        print "list_songs called"
+        songs = line.split("+")
         count = 1
         self.list.clear()
         for x in songs[:-1]:
@@ -179,16 +225,5 @@ class nSpotify(QWidget):
             count += 1
 
         self.songs = songs[:-1]
-
         self.list.doubleClicked.disconnect(self.get_songs)
-
         self.list.itemClicked.connect(self.contextMenuEvent)
-
-
-
-def main():
-    app = QApplication(sys.argv)
-    n = nSpotify()
-    n.show()
-    sys.exit(app.exec_())
-

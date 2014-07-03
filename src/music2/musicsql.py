@@ -1,10 +1,7 @@
 import os
 import pymysql
+# this mod reads the length of an mp3
 from mutagen.mp3 import MP3
-import re
-import sys
-import urllib2 as URL
-import xml.etree.ElementTree as ET
 
 def get_library(loc):
 

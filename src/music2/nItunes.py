@@ -16,6 +16,7 @@ def enrich_all(cur, conn):
         enrich(cur, conn, a[0].split(" "))
 
 
+#returns all the data associated with all artists in the db
 def get_all(cur):
     cur.execute("SELECT name, gender, country, begin_area, tags from artists")
     names = cur.fetchall()
@@ -29,6 +30,7 @@ def get_all(cur):
 
     return artists
 
+#returns the list of albums for an artist
 def get_artists(cur, artist):
 
     artist = ' '.join(artist)
@@ -39,15 +41,13 @@ def get_artists(cur, artist):
 
     albums = cur.fetchall()
     album_str = ""
-    count = 1
     for al in albums:
         album_str += al[0] + "+"
-        count += 1
 
 
     return album_str + str(a_id)
 
-
+#gets all the songs from an album
 def get_album(cur, album, artist):
 
     artist_id = int(artist)
@@ -61,15 +61,13 @@ def get_album(cur, album, artist):
     for song in songs:
         song_str += song[0] + "+"
 
-    return song_str + str(artist_id)
+    return song_str
 
-def get_song(cur, conn, chosen , rating, artist_id):
+#updates a rating of a song
+def rate_song(cur, conn, chosen , rating, artist_id):
 
     cur.execute("""UPDATE songs set rating = %f where name = "%s" and artist_id_fk = %d""" % (float(rating), chosen, int(artist_id)))
-    print rating
-    print """UPDATE songs set rating = %f where name = "%s" and artist_id_fk = %d""" % (float(rating), chosen, int(artist_id))
     conn.commit()
-
     return "Updated Rating of %s to %s" % (chosen, rating)
 
 
@@ -192,8 +190,6 @@ def enrich_albums(cur, conn, artist, brainz_id):
     conn.commit()
 
 def download(cur, song, artist_id):
-
-
     cur.execute("""SELECT path from songs where name = "%s" and artist_id_fk = %d""" % (song, int(artist_id)))
     path = cur.fetchone()[0]
     return path
