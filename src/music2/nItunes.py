@@ -1,4 +1,3 @@
-
 import urllib2 as URL
 import xml.etree.ElementTree as ET
 

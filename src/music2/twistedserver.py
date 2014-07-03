@@ -1,5 +1,5 @@
 from globtwisted import *
-from twisted.internet.protocol import Factory, Protocol
+from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor
 import nItunes
@@ -86,10 +86,10 @@ class tServer(LineReceiver):
         self.sendLine("-download-_start")
         if os.path.isfile(filename):
             with open(filename, 'r') as infile:
-                d = infile.readline()
+                d = infile.read(self.MAX_LENGTH)
                 while d:
                     self.sendLine(d)
-                    d = infile.readline()
+                    d = infile.read(self.MAX_LENGTH)
         self.sendLine("-stop-_")
         print "Done transfering file"
 

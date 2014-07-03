@@ -2,6 +2,7 @@ import subprocess
 from PyQt4.QtGui import *
 import twistedclient as tc
 from globtwisted import *
+import os
 
 class nSpotify(QWidget):
 
@@ -13,6 +14,7 @@ class nSpotify(QWidget):
     album_list = []
     song_name = ""
     songs = []
+    song_data = ""
     filepath = ""
     filesize = 0
     streaming = False
@@ -69,7 +71,7 @@ class nSpotify(QWidget):
             self.stop.clicked.disconnect(self.workThreadS._stop)
         except:
             print "yah"
-        self.get_artists(self.list_artists("+".join(self.artist_list)))
+        self.list_artists("+".join(self.artist_list))
 
     # takes the string of artists and displays them in the self.list
     def list_artists(self, artists):
@@ -94,18 +96,24 @@ class nSpotify(QWidget):
     def download_finish(self):
         print "download finished"
         self.fille.close()
+        if self.streaming:
+            self.filepath = ""
+            self.song_name = ""
         self.streaming = False
 
     def download_test(self, data):
         self.fille.write(data)
         self.filesize += len(data)
-        if self.streaming and self.pid == 0 and operating_system == "mac":
-            p = subprocess.Popen(["afplay", self.filepath + "/" + self.song_name])
+        if self.streaming and self.pid == 0 and operating_system == "mac" and self.filesize >= self.interval:
+            p = subprocess.Popen(["afplay", "/tmp/temp.mp3"])
             self.pid = p.pid
+            self.fille.seek(0)
 
         if self.filesize >= self.interval:
             self.onProgress()
             self.filesize = 0
+
+
 
     # downloads a file
     def download(self):
@@ -154,17 +162,28 @@ class nSpotify(QWidget):
         self.song_name = "temp.mp3"
         print "Now Streaming"
         self.filepath = "/tmp"
+        self.client.get_song_size(text)
+        self.interval = self.filesize / 20
         self.fille = open(self.filepath + "/" + self.song_name, "wb")
         self.streaming = True
         self.filesize = 0
-        self.interval = 0
         self.client.download_song(text, self.artist_id)
         if operating_system == "mac":
             self.stop.clicked.connect(self.stop_song)
+            self.pause.clicked.connect(self.pause_song)
+            self.start.clicked.connect(self.start_song)
+
+    def pause_song(self):
+        subprocess.Popen(["killall", "afplay"])
+        print "stopping song"
+
+    def start_song(self):
+        subprocess.Popen(["afplay", "/tmp/temp.mp3"])
+        print "playing song"
 
     def stop_song(self):
-        subprocess.call(["killall", "afplay"])
-
+        subprocess.Popen(["killall", "afplay"])
+        os.remove("/tmp/temp.mp3")
 
     # takes the chosen artist and sends it to the server
     def get_artist(self):
