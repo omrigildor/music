@@ -9,7 +9,6 @@ import pymysql
 from pydub import AudioSegment
 import wave
 import pyaudio
-import time
 
 class tServer(LineReceiver):
 
@@ -151,16 +150,9 @@ class tServer(LineReceiver):
             with open(ex_file, 'r') as infile:
                 infile.seek(int(index))
                 d = infile.read(16000)
-                total = 0
-                dat = ""
-                print self.MAX_LENGTH
-                print "Position", index
                 while d: #1740800 ~ 10 sec
-                    if total % 2 == 0:
-                        self.transport.write(d)
-                    else:
+                    self.transport.write(d)
                     d = infile.read(16000)
-                    total += 16000
 
         self.files.append(ex_file)
         self.transport.write("-streamstop-_\r\n")

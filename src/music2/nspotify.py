@@ -1,5 +1,4 @@
 from __future__ import print_function
-import subprocess
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 import twistedclient as tc
@@ -7,14 +6,10 @@ from globtwisted import *
 import os
 from pydub import AudioSegment
 from streamthread import StreamThread
-import time
-import wave
 import pyaudio
-import thread
 
 class nSpotify(QWidget):
 
-    pid = 0
     artist_name = ""
     artist_list = []
     artist_id = 0
@@ -34,7 +29,7 @@ class nSpotify(QWidget):
     length = 0
     mark = 0
     streaming = False
-    bl = []
+    bytelist = []
     skipped = 0
 
     def __init__(self, reactor, parent=None):
@@ -76,7 +71,7 @@ class nSpotify(QWidget):
         print ("Slider")
         self.workThread.end()
         self.client.stream = False
-        self.bl = []
+        self.bytelist = []
         value = self.sld.value()
         perc = (value / 100.0) * self.length
         perc = int(perc)
@@ -86,6 +81,27 @@ class nSpotify(QWidget):
         print(perc)
         self.stream_song(perc)
 
+    def clear_all(self):
+        self.artist_name = ""
+        self.artist_id = 0
+        self.album_name = ""
+        self.album_list = []
+        self.song_name = ""
+        self.songs = []
+        self.song_data = ""
+        # from the server the path of the original file
+        self.filepath = ""
+        # what the path of the song downloading will be
+        self.song_path = ""
+        self.filesize = 0
+        self.width = 8
+        self.chan = 2
+        self.frate = 44100
+        self.length = 0
+        self.mark = 0
+        self.streaming = False
+        self.bytelist = []
+        self.skipped = 0
 
     def set_factory(self):
         self.factory = tc.mClientFactory(self)
@@ -98,15 +114,18 @@ class nSpotify(QWidget):
     # button to reset the client after rating/streaming/downloading a song
     def start_again(self):
         try:
-            self.list.itemClicked.disconnect(self.contextMenuEvent)
+            self.sld.releaseMouse.disconnect()
+            self.list.itemClicked.disconnect()
         except:
             print ("OK")
         try:
-            self.pause.clicked.disconnect(self.workThreadS._pause)
-            self.start.clicked.disconnect(self.workThreadS._power)
-            self.stop.clicked.disconnect(self.workThreadS._stop)
+            self.pause.clicked.disconnect()
+            self.start.clicked.disconnect()
+            self.stop.clicked.disconnect()
         except:
             print ("yah")
+
+        self.clear_all()
 
         self.list_artists("+".join(self.artist_list))
 
@@ -215,7 +234,7 @@ class nSpotify(QWidget):
         try:
             self.workThread.end()
             self.client.stream = False
-            self.bl = []
+            self.bytelist = []
         except:
             print("No Song started yet")
         text = str(self.list.currentItem().text())
@@ -232,11 +251,11 @@ class nSpotify(QWidget):
 
     def stream_song(self, index):
         print("Start Stream")
-        self.bl = []
+        self.bytelist = []
         self.streaming = False
         self.p = pyaudio.PyAudio()
         self.streamer = self.p.open(format = self.width, channels = self.chan, rate = self.frate, output = True)
-        self.workThread = StreamThread(self.bl, self.streamer, self.p)
+        self.workThread = StreamThread(self.bytelist, self.streamer, self.p)
         self.connect(self.workThread, SIGNAL("Pause"), self.set_position)
         self.client.set_thread(self.workThread)
         self.client.stream_song(self.song_name, self.artist_id, index)
@@ -245,7 +264,7 @@ class nSpotify(QWidget):
         print("Paused")
         self.workThread.end()
         self.client.stream = False
-        self.bl = []
+        self.bytelist = []
 
     def start_song(self):
         print ("Started")
@@ -256,7 +275,7 @@ class nSpotify(QWidget):
     def stop_song(self):
         self.workThread.end()
         self.client.stream = False
-        self.bl = []
+        self.bytelist = []
         print ("stopped")
 
     # takes the chosen artist and sends it to the server

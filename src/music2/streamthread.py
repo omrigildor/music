@@ -7,7 +7,7 @@ class StreamThread(QThread):
 
     def __init__(self, bl, streamer, p):
         QThread.__init__(self)
-        self.bl = bl
+        self.bytelist = bl
         self.streamer = streamer
         self.p = p
         self.connect(self, SIGNAL("Stop"), self.end)
@@ -25,7 +25,7 @@ class StreamThread(QThread):
         self.wait()
 
     def run(self):
-        for x in self.bl:
+        for x in self.bytelist:
             if self.go:
                 try:
                     self.position += len(x)

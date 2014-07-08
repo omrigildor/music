@@ -10,7 +10,7 @@ class tClient(protocol.Protocol):
     dumb = True
     open = True
     count = 0
-    wt = 0
+    wthread = 0
     data = ""
     opening = ""
 
@@ -18,7 +18,7 @@ class tClient(protocol.Protocol):
         self.gui = gui
 
     def set_thread(self, wthread):
-        self.wt = wthread
+        self.wthread = wthread
 
     def connectionMade(self):
         print "Connected!"
@@ -37,11 +37,11 @@ class tClient(protocol.Protocol):
                 if self.dumb:
                     self.count = 0
                     if self.open:
-                        self.wt.bl.append(self.data)
+                        self.wthread.bytelist.append(self.data)
                         self.opening = self.data[:44]
                         self.open = False
                     else:
-                        self.wt.bl.append(self.data)
+                        self.wthread.bytelist.append(self.data)
 
 
                     print "Not Dumb"
@@ -49,7 +49,7 @@ class tClient(protocol.Protocol):
                     self.gui.play_stream()
 
                 else:
-                    self.wt.bl.append(self.data)
+                    self.wthread.bytelist.append(self.data)
 
                 self.data = ""
 
@@ -99,7 +99,7 @@ class tClient(protocol.Protocol):
             self.gui.set_filesize(int(lin))
 
         elif choice == "-streamstop":
-            self.wt.bl.append(data)
+            self.wthread.bytelist.append(data)
             self.stream = False
 
 
