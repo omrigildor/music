@@ -1,7 +1,5 @@
-from twisted.protocols.basic import LineReceiver
 from twisted.internet import protocol
-import time
-import thread
+from struct import pack, unpack
 
 
 class tClient(protocol.Protocol):
@@ -10,7 +8,11 @@ class tClient(protocol.Protocol):
     stream = False
     info = False
     dumb = True
+    open = True
     count = 0
+    wt = 0
+    data = ""
+    opening = ""
 
     def __init__(self, gui):
         self.gui = gui
@@ -30,18 +32,33 @@ class tClient(protocol.Protocol):
             self.down = False
 
         elif self.stream:
-            self.wt.bl.append(data)
-            if self.dumb:
-                print "Start Stream"
-                self.dumb = False
-                self.gui.play_stream()
+            self.data += data
+            if len(self.data) > 441000:
+                if self.dumb:
+                    self.count = 0
+                    if self.open:
+                        self.wt.bl.append(self.data)
+                        self.opening = self.data[:44]
+                        self.open = False
+                    else:
+                        self.wt.bl.append(self.data)
+
+
+                    print "Not Dumb"
+                    self.dumb = False
+                    self.gui.play_stream()
+
+                else:
+                    self.wt.bl.append(self.data)
+
+                self.data = ""
 
         elif self.down:
             self.gui.download_test(data)
 
         else:
             for x in data.split("\r\n"):
-                if x != "":
+                if x != "" and "-_" in x:
                     self.processData(x)
 
 
@@ -73,14 +90,16 @@ class tClient(protocol.Protocol):
         elif choice == "-download":
             self.down = True
 
-
         elif choice == "-stream":
+            self.data = ""
+            self.dumb = True
             self.stream = True
 
         elif choice == "-size":
             self.gui.set_filesize(int(lin))
 
-        else:
+        elif choice == "-streamstop":
+            self.wt.bl.append(data)
             self.stream = False
 
 
@@ -119,6 +138,7 @@ class tClient(protocol.Protocol):
     def stream_song(self, song_name, artist_id, index = 0):
         self.transport.write("-stream %s/%s/%d" % (song_name, artist_id, index))
         self.transport.write("\r\n")
+        self.data = ""
 
     def get_info(self, song_name, artist_id):
         self.transport.write("-info %s/%s" % (song_name, artist_id))

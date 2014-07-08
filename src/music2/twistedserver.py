@@ -9,11 +9,12 @@ import pymysql
 from pydub import AudioSegment
 import wave
 import pyaudio
-
+import time
 
 class tServer(LineReceiver):
 
     # init method
+    files = []
     def __init__(self):
         print "Server is Running"
         self.conn = pymysql.connect(host = "localhost", user = "root", passwd = "", db = "test2")
@@ -32,6 +33,7 @@ class tServer(LineReceiver):
     # prints when connected to client
     def connectionMade(self):
         print "Connected to Client"
+
 
     #receives the line
     def dataReceived(self, data):
@@ -70,18 +72,18 @@ class tServer(LineReceiver):
         print "Getting data"
         dat = " ".join(data).split("/")
         filename = nItunes.download(self.cur, dat[0], dat[1])
-        length = nItunes.length(self.cur, dat[0], dat[1])
         ex_file = filename.split(".mp3")[0] + ".wav"
         if os.path.isfile(filename):
             sound = AudioSegment.from_mp3(filename)
             sound.export(ex_file, format="wav")
         p = pyaudio.PyAudio()
-
+        size = os.stat(ex_file).st_size
         w = wave.open(ex_file, "r")
         width = p.get_format_from_width(w.getsampwidth())
+        frames = w.getnframes()
         rate = w.getframerate()
         chan = w.getnchannels()
-        self.transport.write("-information-_%d_%d_%d_%d\r\n" % (width, chan, rate, length))
+        self.transport.write("-information-_%d_%d_%d_%d\r\n" % (width, chan, rate, size))
 
 
 
@@ -106,7 +108,7 @@ class tServer(LineReceiver):
     def stream(self, data):
         dat = " ".join(data).split("/")
         filename = nItunes.download(self.cur, dat[0], dat[1])
-        threads.deferToThread(self.stream_file,filename, dat[-1])
+        threads.deferToThread(self.stream_file, filename, dat[-1])
 
     # returns the size of the song as a string
     def get_size(self, data):
@@ -147,17 +149,21 @@ class tServer(LineReceiver):
             sound = AudioSegment.from_mp3(filename)
             sound.export(ex_file, format="wav")
             with open(ex_file, 'r') as infile:
+                infile.seek(int(index))
+                d = infile.read(16000)
                 total = 0
-                d = infile.read(1024)
-                infile.read(int(index))
+                dat = ""
+                print self.MAX_LENGTH
                 print "Position", index
                 while d: #1740800 ~ 10 sec
-                    self.transport.write(d)
-                    d = infile.read(1024)
-                    total += 1024
+                    if total % 2 == 0:
+                        self.transport.write(d)
+                    else:
+                    d = infile.read(16000)
+                    total += 16000
 
-        self.transport.write("-stop-_\r\n")
-        os.remove(ex_file)
+        self.files.append(ex_file)
+        self.transport.write("-streamstop-_\r\n")
         print "Done streaming file"
 
 

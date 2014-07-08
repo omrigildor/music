@@ -28,7 +28,6 @@ class nSpotify(QWidget):
     # what the path of the song downloading will be
     song_path = ""
     filesize = 0
-    position = 0
     width = 8
     chan = 2
     frate = 44100
@@ -36,6 +35,7 @@ class nSpotify(QWidget):
     mark = 0
     streaming = False
     bl = []
+    skipped = 0
 
     def __init__(self, reactor, parent=None):
         super(nSpotify, self).__init__(parent)
@@ -72,15 +72,19 @@ class nSpotify(QWidget):
 
     #creates the gui's factory
     def changeValue(self):
-        self.emit(SIGNAL("Stop"))
-        self.streamer.close()
-        self.p.terminate()
+        self.skipped = 0
+        print ("Slider")
+        self.workThread.end()
+        self.client.stream = False
+        self.bl = []
         value = self.sld.value()
-        perc = value / 100.0
-        print (value, perc, "hi")
-        scrub = perc * float(self.length) * float(self.frate)
-        print (scrub, "scrub value")
-        self.client.stream_song(self.song_name, self.artist_id, int(scrub))
+        perc = (value / 100.0) * self.length
+        perc = int(perc)
+        self.skipped = perc
+        while perc % 2 != 0:
+            perc = perc - 1
+        print(perc)
+        self.stream_song(perc)
 
 
     def set_factory(self):
@@ -140,12 +144,15 @@ class nSpotify(QWidget):
         os.remove(self.song_path + ".wav")
         self.line_edit.setText("Finished Downloading File")
 
-    def set_position(self, position):
-        self.mark = position
+    def set_position(self):
+        print("Position Set")
+        self.mark = self.skipped + self.workThread.position
+        print(self.mark)
 
 
     def play_stream(self):
         if not self.streaming:
+            print ("THIS WAS CALLED")
             self.workThread.start()
             self.streaming = True
 
@@ -205,6 +212,12 @@ class nSpotify(QWidget):
 
     # streams a song
     def stream(self):
+        try:
+            self.workThread.end()
+            self.client.stream = False
+            self.bl = []
+        except:
+            print("No Song started yet")
         text = str(self.list.currentItem().text())
         self.song_name = text
         self.client.get_info(text, self.artist_id)
@@ -218,25 +231,32 @@ class nSpotify(QWidget):
         self.stream_song(0)
 
     def stream_song(self, index):
-        self.client.stream_song(self.song_name, self.artist_id, 800000)
+        print("Start Stream")
+        self.bl = []
+        self.streaming = False
         self.p = pyaudio.PyAudio()
         self.streamer = self.p.open(format = self.width, channels = self.chan, rate = self.frate, output = True)
-        self.workThread = StreamThread(self.bl, self.streamer)
+        self.workThread = StreamThread(self.bl, self.streamer, self.p)
+        self.connect(self.workThread, SIGNAL("Pause"), self.set_position)
         self.client.set_thread(self.workThread)
+        self.client.stream_song(self.song_name, self.artist_id, index)
 
     def pause_song(self):
-        self.position = self.mark
-        self.streamer.close()
-        self.p.terminate()
-        self.workThread.__del__()
+        print("Paused")
+        self.workThread.end()
+        self.client.stream = False
+        self.bl = []
 
     def start_song(self):
-        print ("Again")
-        self.stream_song(self.position)
+        print ("Started")
+        self.workThread.end()
+        self.client.stream = False
+        self.stream_song(self.mark)
 
     def stop_song(self):
-        self.streamer.close()
-        self.p.terminate()
+        self.workThread.end()
+        self.client.stream = False
+        self.bl = []
         print ("stopped")
 
     # takes the chosen artist and sends it to the server
