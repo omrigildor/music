@@ -82,6 +82,9 @@ class nSpotify(QWidget):
 
         self.stream_song(perc)
 
+    def sld_value(self):
+        self.sld.setValue(self.sld.value() + 1)
+
     def clear_all(self):
         self.artist_name = ""
         self.artist_id = 0
@@ -115,19 +118,32 @@ class nSpotify(QWidget):
     # button to reset the client after rating/streaming/downloading a song
     def start_again(self):
         try:
+            self.workThread.end()
+            self.workThread.end()
+            self.menu.clear()
+            self.list.itemClicked.disconnect(self.contextMenuEvent)
+            self.menu.setDisabled(True)
             self.sld.releaseMouse.disconnect()
             self.list.itemClicked.disconnect()
+            self.list.clicked.disconnect()
         except:
-            print ("OK")
+            print("ERROR")
         try:
+            self.list.doubleClicked.disconnect()
             self.pause.clicked.disconnect()
             self.start.clicked.disconnect()
             self.stop.clicked.disconnect()
         except:
-            print ("yah")
+            print("ERROR 2")
+
+
+        try:
+            self.list.itemClicked.disconnect(self.contextMenuEvent)
+        except:
+            pass
 
         self.clear_all()
-
+        self.list.clear()
         self.list_artists("+".join(self.artist_list))
 
     # takes the string of artists and displays them in the self.list
@@ -140,6 +156,7 @@ class nSpotify(QWidget):
             self.list.addItem(x.split("/")[0])
 
         self.list.doubleClicked.connect(self.get_artist)
+        print("List artists")
 
     #updates the line_edit text
     def update_text(self, txt):
@@ -172,7 +189,6 @@ class nSpotify(QWidget):
 
     def play_stream(self):
         if not self.streaming:
-            print ("THIS WAS CALLED")
             self.workThread.start()
             self.streaming = True
 
@@ -235,8 +251,10 @@ class nSpotify(QWidget):
             self.workThread.end()
             self.client.stream = False
             self.bytelist = []
+            self.sld.setValue(0)
         except:
             print("No Song started yet")
+        self.update_text("Streaming!               :)")
         text = str(self.list.currentItem().text())
         self.song_name = text
         self.client.get_info(text, self.artist_id)
@@ -255,8 +273,10 @@ class nSpotify(QWidget):
         self.streaming = False
         self.p = pyaudio.PyAudio()
         self.streamer = self.p.open(format = self.width, channels = self.chan, rate = self.frate, output = True)
-        self.workThread = StreamThread(self.bytelist, self.streamer, self.p)
+        second = self.length * .01
+        self.workThread = StreamThread(self.bytelist, self.streamer, self.p, second)
         self.connect(self.workThread, SIGNAL("Pause"), self.set_position)
+        self.connect(self.workThread, SIGNAL("Tick"), self.sld_value)
         self.client.set_thread(self.workThread)
         self.client.stream_song(self.song_name, self.artist_id, index)
 
@@ -276,6 +296,9 @@ class nSpotify(QWidget):
         self.workThread.end()
         self.client.stream = False
         self.bytelist = []
+        self.mark = 0
+        self.skipped = 0
+        self.length = 0
         print ("stopped")
 
     # takes the chosen artist and sends it to the server
@@ -300,23 +323,23 @@ class nSpotify(QWidget):
         self.artist_id = albums[-1]
         self.albums = albums[:-1]
         self.line_edit.setText("Double Click an Album")
-        self.list.doubleClicked.disconnect(self.get_artist)
+        self.list.doubleClicked.disconnect()
         self.list.doubleClicked.connect(self.get_songs)
 
     # context menu
     # sets it up so a click allows user to rate/stream/download
     def contextMenuEvent(self, event):
         self.menu = QMenu(self)
-        rate_act = QAction('Rate', self)
-        rate_act.triggered.connect(self.rate)
-        stream_act = QAction('Stream', self)
-        stream_act.triggered.connect(self.stream)
-        download_act = QAction('Download', self)
-        download_act.triggered.connect(self.download)
+        self.rate_act = QAction('Rate', self)
+        self.rate_act.triggered.connect(self.rate)
+        self.stream_act = QAction('Stream', self)
+        self.stream_act.triggered.connect(self.stream)
+        self.download_act = QAction('Download', self)
+        self.download_act.triggered.connect(self.download)
 
-        self.menu.addAction(rate_act)
-        self.menu.addAction(stream_act)
-        self.menu.addAction(download_act)
+        self.menu.addAction(self.rate_act)
+        self.menu.addAction(self.stream_act)
+        self.menu.addAction(self.download_act)
         self.menu.popup(QCursor.pos())
 
     # takes the chosen album and sends it to the server
@@ -338,5 +361,5 @@ class nSpotify(QWidget):
             count += 1
 
         self.songs = songs[:-1]
-        self.list.doubleClicked.disconnect(self.get_songs)
+        self.list.doubleClicked.disconnect()
         self.list.itemClicked.connect(self.contextMenuEvent)

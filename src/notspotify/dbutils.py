@@ -33,7 +33,6 @@ def get_all(cur):
 def get_artists(cur, artist):
 
     artist = ' '.join(artist)
-    print artist
     cur.execute("""SELECT id from artists where name = "%s" """ % artist)
     a_id = cur.fetchone()[0]
     cur.execute("SELECT name from albums where artist_id_fk = " + str(a_id))

@@ -63,6 +63,7 @@ class tClient(protocol.Protocol):
 
 
     def processData(self, data):
+        print "Processing Data"
         x = data.split("-_")
         choice = x[0]
         lin = x[1]
@@ -79,7 +80,8 @@ class tClient(protocol.Protocol):
             # data is now the list of albums
             self.gui.list_albums(lin)
 
-        elif choice == "-album":
+        elif choice == "-album"
+            print "Albums"
             # data is the list of songs
             self.gui.list_songs(lin)
 
