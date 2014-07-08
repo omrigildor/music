@@ -1,9 +1,8 @@
-from globtwisted import *
+from constants import *
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
-from twisted.internet import reactor
 from twisted.internet import threads
-import nItunes
+import dbutils
 import os
 import pymysql
 from pydub import AudioSegment
@@ -52,25 +51,25 @@ class tServer(LineReceiver):
 
     #sends the full list of artists
     def get_all(self, data):
-        self.transport.write("-all-_" + nItunes.get_all(self.cur) + "\r\n")
+        self.transport.write("-all-_" + dbutils.get_all(self.cur) + "\r\n")
 
     #sends the albums associated with an artist
     def get_artists(self, data):
         print "artist chosen"
-        self.transport.write("-artist-_" + nItunes.get_artists(self.cur, data) + "\r\n")
+        self.transport.write("-artist-_" + dbutils.get_artists(self.cur, data) + "\r\n")
 
     #sends the songs associated with an album
     # album name, artist_id
     def get_albums(self, data):
         print "album chosen"
         dat = " ".join(data).split("/")
-        self.transport.write("-album-_" + nItunes.get_album(self.cur, dat[0], dat[1]) + "\r\n")
+        self.transport.write("-album-_" + dbutils.get_album(self.cur, dat[0], dat[1]) + "\r\n")
 
 
     def get_information(self, data):
         print "Getting data"
         dat = " ".join(data).split("/")
-        filename = nItunes.download(self.cur, dat[0], dat[1])
+        filename = dbutils.download(self.cur, dat[0], dat[1])
         ex_file = filename.split(".mp3")[0] + ".wav"
         if os.path.isfile(filename):
             sound = AudioSegment.from_mp3(filename)
@@ -93,20 +92,20 @@ class tServer(LineReceiver):
     def rate_song(self, data):
         print "rating chosen"
         dat = " ".join(data).split("/")
-        self.transport.write("-rate-_" + nItunes.rate_song(self.cur, self.conn, dat[0], dat[1], dat[-1]) + "\r\n")
+        self.transport.write("-rate-_" + dbutils.rate_song(self.cur, self.conn, dat[0], dat[1], dat[-1]) + "\r\n")
         
     # download and stream the song
     # takes song_name
     # artist_id
     def download(self, data):
         dat = " ".join(data).split("/")
-        filename = nItunes.download(self.cur, dat[0], dat[1])
+        filename = dbutils.download(self.cur, dat[0], dat[1])
         threads.deferToThread(self.read_file, filename)
 
     # stream a song
     def stream(self, data):
         dat = " ".join(data).split("/")
-        filename = nItunes.download(self.cur, dat[0], dat[1])
+        filename = dbutils.download(self.cur, dat[0], dat[1])
         threads.deferToThread(self.stream_file, filename, dat[-1])
 
     # returns the size of the song as a string
@@ -149,10 +148,10 @@ class tServer(LineReceiver):
             sound.export(ex_file, format="wav")
             with open(ex_file, 'r') as infile:
                 infile.seek(int(index))
-                d = infile.read(16000)
+                d = infile.read(1024)
                 while d: #1740800 ~ 10 sec
                     self.transport.write(d)
-                    d = infile.read(16000)
+                    d = infile.read(1024)
 
         self.files.append(ex_file)
         self.transport.write("-streamstop-_\r\n")
@@ -164,10 +163,4 @@ class mServerFactory(Factory):
     def buildProtocol(self, addr):
         return tServer()
 
-# instantiates factory
-# listens on port with that factory
-# runs the reactor
-factory = mServerFactory()
-reactor.listenTCP(port, factory)
-reactor.run()
 

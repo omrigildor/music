@@ -2,7 +2,7 @@ from __future__ import print_function
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 import twistedclient as tc
-from globtwisted import *
+from constants import *
 import os
 from pydub import AudioSegment
 from streamthread import StreamThread
@@ -78,7 +78,8 @@ class nSpotify(QWidget):
         self.skipped = perc
         while perc % 2 != 0:
             perc = perc - 1
-        print(perc)
+        print(perc, "Value skipping to")
+
         self.stream_song(perc)
 
     def clear_all(self):
@@ -178,7 +179,6 @@ class nSpotify(QWidget):
     def download_test(self, data):
         self.filesize += len(data)
         self.fille.write(data)
-
         if self.filesize >= self.interval:
             self.onProgress()
             self.filesize = 0
