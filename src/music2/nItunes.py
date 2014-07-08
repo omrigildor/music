@@ -193,3 +193,8 @@ def download(cur, song, artist_id):
     path = cur.fetchone()[0]
     return path
 
+def length(cur, song, artist_id):
+    cur.execute("""SELECT length from songs where name = "%s" and artist_id_fk = %d""" % (song, int(artist_id)))
+    length = cur.fetchone()[0]
+    return length
+

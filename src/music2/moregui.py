@@ -1,8 +1,16 @@
+from __future__ import print_function
 import subprocess
 from PyQt4.QtGui import *
+from PyQt4.QtCore import *
 import twistedclient as tc
 from globtwisted import *
 import os
+from pydub import AudioSegment
+from streamthread import StreamThread
+import time
+import wave
+import pyaudio
+import thread
 
 class nSpotify(QWidget):
 
@@ -15,10 +23,20 @@ class nSpotify(QWidget):
     song_name = ""
     songs = []
     song_data = ""
+    # from the server the path of the original file
     filepath = ""
+    # what the path of the song downloading will be
+    song_path = ""
     filesize = 0
+    position = 0
+    width = 8
+    chan = 2
+    frate = 44100
+    length = 0
+    mark = 0
     streaming = False
-    
+    bl = []
+
     def __init__(self, reactor, parent=None):
         super(nSpotify, self).__init__(parent)
         self.reactor = reactor
@@ -33,6 +51,7 @@ class nSpotify(QWidget):
         self.stop = QPushButton("stop")
         self.start = QPushButton("start")
         self.pause = QPushButton("pause")
+        self.sld = QSlider(Qt.Horizontal, self)
 
         self.grid = QGridLayout()
         hBox = QHBoxLayout()
@@ -40,10 +59,11 @@ class nSpotify(QWidget):
         hBox.addWidget(self.start)
         hBox.addWidget(self.stop)
         self.grid.addWidget(self.line_edit, 0, 0)
-        self.grid.addWidget(self.pbar, 1, 0)
-        self.grid.addLayout(hBox, 2, 0)
-        self.grid.addWidget(self.list, 3, 0)
-        self.grid.addWidget(self.start_over, 4 , 0)
+        self.grid.addWidget(self.sld, 1, 0)
+        self.grid.addWidget(self.pbar, 2, 0)
+        self.grid.addLayout(hBox, 3, 0)
+        self.grid.addWidget(self.list, 4, 0)
+        self.grid.addWidget(self.start_over, 5 , 0)
 
         self.setLayout(self.grid)
         self.setWindowTitle("NotSpotify")
@@ -51,6 +71,18 @@ class nSpotify(QWidget):
         self.setGeometry(600, 300, 800, 600)
 
     #creates the gui's factory
+    def changeValue(self):
+        self.emit(SIGNAL("Stop"))
+        self.streamer.close()
+        self.p.terminate()
+        value = self.sld.value()
+        perc = value / 100.0
+        print (value, perc, "hi")
+        scrub = perc * float(self.length) * float(self.frate)
+        print (scrub, "scrub value")
+        self.client.stream_song(self.song_name, self.artist_id, int(scrub))
+
+
     def set_factory(self):
         self.factory = tc.mClientFactory(self)
         self.connection = self.reactor.connectTCP(host, port, self.factory)
@@ -64,13 +96,14 @@ class nSpotify(QWidget):
         try:
             self.list.itemClicked.disconnect(self.contextMenuEvent)
         except:
-            print "OK"
+            print ("OK")
         try:
             self.pause.clicked.disconnect(self.workThreadS._pause)
             self.start.clicked.disconnect(self.workThreadS._power)
             self.stop.clicked.disconnect(self.workThreadS._stop)
         except:
-            print "yah"
+            print ("yah")
+
         self.list_artists("+".join(self.artist_list))
 
     # takes the string of artists and displays them in the self.list
@@ -90,59 +123,73 @@ class nSpotify(QWidget):
 
     #sets the filesize of the chosen song
     def set_filesize(self, i):
-        print "filesize updated to", i
+        print ("filesize updated to", i)
         self.filesize = i
 
+    def set_info(self, width, chan, frate, length):
+        print ("Setting information")
+        self.width = int(width)
+        self.chan = int(chan)
+        self.frate = int(frate)
+        self.length = int(length)
+
     def download_finish(self):
-        print "download finished"
+        print ("download finished")
         self.fille.close()
-        if self.streaming:
-            self.filepath = ""
-            self.song_name = ""
-        self.streaming = False
+        AudioSegment.from_wav(str(self.song_path) + ".wav").export(str(self.song_path) + ".mp3", format="mp3")
+        os.remove(self.song_path + ".wav")
+        self.line_edit.setText("Finished Downloading File")
+
+    def set_position(self, position):
+        self.mark = position
+
+
+    def play_stream(self):
+        if not self.streaming:
+            self.workThread.start()
+            self.streaming = True
 
     def download_test(self, data):
-        self.fille.write(data)
         self.filesize += len(data)
-        if self.streaming and self.pid == 0 and operating_system == "mac" and self.filesize >= self.interval:
-            p = subprocess.Popen(["afplay", "/tmp/temp.mp3"])
-            self.pid = p.pid
-            self.fille.seek(0)
+        self.fille.write(data)
 
         if self.filesize >= self.interval:
             self.onProgress()
             self.filesize = 0
 
 
-
     # downloads a file
     def download(self):
         self.song_name = str(self.list.currentItem().text())
+        print (self.song_name)
         self.client.get_song_size(self.song_name)
         self.interval = self.filesize / 20
         self.pbar.reset()
         self.pbar.setValue(0)
-        print "Now in downloading"
+        print ("Now in downloading")
         if self.filepath == "":
             text, ok = QInputDialog.getText(self, 'Filepath', 'Enter your filepath')
             if ok:
                 self.filepath = text
-                self.fille = open(self.filepath + "/" + self.song_name, "wb")
+                self.song_path = self.filepath + "/" + self.song_name.split(".mp3")[0]
+                self.fille = open(self.song_path + ".wav", "wb")
                 self.filesize = 0
                 self.client.download_song(self.song_name, self.artist_id)
         else:
-            self.fille = open(self.filepath + "/" + self.song_name, "wb")
+            self.song_path = self.filepath + "/" + self.song_name.split(".mp3")[0]
+            self.fille = open(self.song_path + ".wav", "wb")
             self.filesize = 0
             self.client.download_song(self.song_name, self.artist_id)
 
+
     # rates a song showing a dialog box
     def rate(self):
-        print "Now in rating"
+        print ("Now in rating")
         text, ok = QInputDialog.getText(self, 'Rating', 'Enter your rating (0 to 5)')
         if ok and float(text) <= 5 and float(text) >= 0:
             self.song_name = str(self.list.currentItem().text())
             self.client.send_rating(self.song_name, str(text), self.artist_id)
-        
+
         else:
             self.box = QErrorMessage()
             self.box.setWindowTitle("Error")
@@ -159,42 +206,49 @@ class nSpotify(QWidget):
     # streams a song
     def stream(self):
         text = str(self.list.currentItem().text())
-        self.song_name = "temp.mp3"
-        print "Now Streaming"
-        self.filepath = "/tmp"
+        self.song_name = text
+        self.client.get_info(text, self.artist_id)
+        print ("Now Streaming")
         self.client.get_song_size(text)
         self.interval = self.filesize / 20
-        self.fille = open(self.filepath + "/" + self.song_name, "wb")
-        self.streaming = True
-        self.filesize = 0
-        self.client.download_song(text, self.artist_id)
-        if operating_system == "mac":
-            self.stop.clicked.connect(self.stop_song)
-            self.pause.clicked.connect(self.pause_song)
-            self.start.clicked.connect(self.start_song)
+        self.stop.clicked.connect(self.stop_song)
+        self.pause.clicked.connect(self.pause_song)
+        self.start.clicked.connect(self.start_song)
+        self.sld.sliderReleased.connect(self.changeValue)
+        self.stream_song(0)
+
+    def stream_song(self, index):
+        self.client.stream_song(self.song_name, self.artist_id, 800000)
+        self.p = pyaudio.PyAudio()
+        self.streamer = self.p.open(format = self.width, channels = self.chan, rate = self.frate, output = True)
+        self.workThread = StreamThread(self.bl, self.streamer)
+        self.client.set_thread(self.workThread)
 
     def pause_song(self):
-        subprocess.Popen(["killall", "afplay"])
-        print "stopping song"
+        self.position = self.mark
+        self.streamer.close()
+        self.p.terminate()
+        self.workThread.__del__()
 
     def start_song(self):
-        subprocess.Popen(["afplay", "/tmp/temp.mp3"])
-        print "playing song"
+        print ("Again")
+        self.stream_song(self.position)
 
     def stop_song(self):
-        subprocess.Popen(["killall", "afplay"])
-        os.remove("/tmp/temp.mp3")
+        self.streamer.close()
+        self.p.terminate()
+        print ("stopped")
 
     # takes the chosen artist and sends it to the server
     def get_artist(self):
         text = str(self.list.currentItem().text())
-        print text, "artist chosen"
+        print (text, "artist chosen")
         self.artist_name = text
         self.client.send_artist(text)
 
     # list the albums for an artist
     def list_albums(self, line):
-        print "called list albums"
+        print ("called list albums")
         albums = line.split("+")
         count = 1
 
@@ -230,13 +284,13 @@ class nSpotify(QWidget):
     def get_songs(self):
         self.line_edit.setText("Right click a song")
         text = str(self.list.currentItem().text())
-        print "Now in get_songs"
+        print ("Now in get_songs")
         self.album_name = text
         self.client.send_album(self.album_name, self.artist_id)
 
     # lists the songs for an album in self.list
     def list_songs(self, line):
-        print "list_songs called"
+        print ("list_songs called")
         songs = line.split("+")
         count = 1
         self.list.clear()
