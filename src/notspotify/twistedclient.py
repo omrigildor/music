@@ -43,6 +43,7 @@ class tClient(protocol.Protocol):
 
         elif "stop-_" in data:
             self.gui.download_finish(data)
+            self.down = False
 
         elif self.down:
             self.gui.download_test(data)
