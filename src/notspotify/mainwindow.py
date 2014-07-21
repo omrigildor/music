@@ -117,12 +117,15 @@ class nSpotify(QWidget):
 
     # button to reset the client after rating/streaming/downloading a song
     def start_again(self):
+        self.client.stream = False
+        self.client.down = False
+        self.client.begin = True
         try:
             self.workThread.end()
-            self.workThread.end()
+            self.client.stream = False
             self.menu.clear()
+            self.menu.popup.disconnect()
             self.list.itemClicked.disconnect(self.contextMenuEvent)
-            self.menu.setDisabled(True)
             self.sld.releaseMouse.disconnect()
             self.list.itemClicked.disconnect()
             self.list.clicked.disconnect()
@@ -142,9 +145,8 @@ class nSpotify(QWidget):
         except:
             pass
 
-        self.clear_all()
-        self.list.clear()
-        self.list_artists("+".join(self.artist_list))
+        print("Starting_Over")
+        self.client.get_all()
 
     # takes the string of artists and displays them in the self.list
     def list_artists(self, artists):
@@ -152,8 +154,8 @@ class nSpotify(QWidget):
         self.artist_list = art_list
         self.list.clear()
         for x in art_list:
-            x.split("/")
-            self.list.addItem(x.split("/")[0])
+            if x.split("/")[0] != "":
+                self.list.addItem(x.split("/")[0])
 
         self.list.doubleClicked.connect(self.get_artist)
         print("List artists")
@@ -184,6 +186,8 @@ class nSpotify(QWidget):
     def set_position(self):
         print("Position Set")
         self.mark = self.skipped + self.workThread.position
+        if self.mark % 2 != 0:
+            self.mark -= 1
         print(self.mark)
 
 

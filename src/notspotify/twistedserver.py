@@ -154,7 +154,8 @@ class tServer(LineReceiver):
                     d = infile.read(1024)
 
         self.files.append(ex_file)
-        self.transport.write("-streamstop-_\r\n")
+
+        self.transport.write("\r\n-streamstop-_\r\n")
         print "Done streaming file"
 
 
