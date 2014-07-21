@@ -47,6 +47,7 @@ class nSpotify(QWidget):
         self.start = QPushButton("start")
         self.pause = QPushButton("pause")
         self.sld = QSlider(Qt.Horizontal, self)
+        self.sld.setRange(0, 200)
 
         self.grid = QGridLayout()
         hBox = QHBoxLayout()
@@ -176,8 +177,9 @@ class nSpotify(QWidget):
         self.frate = int(frate)
         self.length = int(length)
 
-    def download_finish(self):
+    def download_finish(self, data):
         print ("download finished")
+        self.fille.write(data)
         self.fille.close()
         AudioSegment.from_wav(str(self.song_path) + ".wav").export(str(self.song_path) + ".mp3", format="mp3")
         os.remove(self.song_path + ".wav")
@@ -206,6 +208,14 @@ class nSpotify(QWidget):
 
     # downloads a file
     def download(self):
+        try:
+            self.workThread.end()
+            self.client.stream = False
+            self.bytelist = []
+            self.sld.setValue(0)
+        except:
+            print("No Song started yet")
+
         self.song_name = str(self.list.currentItem().text())
         print (self.song_name)
         self.client.get_song_size(self.song_name)
@@ -230,6 +240,13 @@ class nSpotify(QWidget):
 
     # rates a song showing a dialog box
     def rate(self):
+        try:
+            self.workThread.end()
+            self.client.stream = False
+            self.bytelist = []
+            self.sld.setValue(0)
+        except:
+            print("No Song started yet")
         print ("Now in rating")
         text, ok = QInputDialog.getText(self, 'Rating', 'Enter your rating (0 to 5)')
         if ok and float(text) <= 5 and float(text) >= 0:

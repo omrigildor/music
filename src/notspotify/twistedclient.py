@@ -41,8 +41,13 @@ class tClient(protocol.Protocol):
 
                 self.data = ""
 
+        elif "stop-_" in data:
+            self.gui.download_finish(data)
+
         elif self.down:
             self.gui.download_test(data)
+
+
 
         else:
             print data
