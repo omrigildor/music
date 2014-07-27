@@ -47,7 +47,7 @@ class nSpotify(QWidget):
         self.start = QPushButton("start")
         self.pause = QPushButton("pause")
         self.sld = QSlider(Qt.Horizontal, self)
-        self.sld.setRange(0, 200)
+        self.sld.setRange(0, 100)
 
         self.grid = QGridLayout()
         hBox = QHBoxLayout()

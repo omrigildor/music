@@ -30,7 +30,7 @@ class StreamThread(QThread):
         for x in self.bytelist:
             if self.go:
                 try:
-                    if self.count >= self.second / 2:
+                    if self.count >= self.second:
                         self.emit(SIGNAL("Tick"))
                     self.position += len(x)
                     self.count += len(x)
